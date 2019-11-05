@@ -1,3 +1,6 @@
+# following the tutorial:
+# https://machinelearningmastery.com/machine-learning-in-python-step-by-step/
+
 # Load libraries
 import pandas
 from pandas.plotting import scatter_matrix
@@ -14,11 +17,8 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
 
 
-def loadData():
-    # Load dataset
-    url = "iris.csv"
-    names = ['sepal-length', 'sepal-width', 'petal-length', 'petal-width', 'class']
-    dataset = pandas.read_csv(url, names=names)
+def printDataAttributes(dataset):
+
     # shape (rows = num of examples, cols= num of attributes)
     print(dataset.shape)
     # head (print the 20 first examples)
@@ -27,28 +27,108 @@ def loadData():
     print(dataset.describe())
     # class distribution (prints how many instances are from each class)
     print(dataset.groupby('class').size())
+
+
+def univariatePlots(dataset):
     # Univariate plots
     # box and whisker plots
     '''
     This type of graph is used to show the shape of the distribution,
     its central value, and its variability.
-     In a box and whisker plot: the ends of the box are the upper and lower 
+     In a box and whisker plot: the ends of the box are the upper and lower
      quartiles, so the box spans the interquartile range. the median is marked
-      by a vertical line inside the box 
+      by a vertical line inside the box
     '''
     dataset.plot(kind='box', subplots=True, layout=(2, 2), sharex=False, sharey=False)
     plt.show()
     # histograms
     dataset.hist()
     plt.show()
+
+
+def multivariantePlots(dataset):
     #Multivariate Plots
     # scatter plot matrix
     scatter_matrix(dataset)
     plt.show()
 
 
+def createValidationSet(dataset):
+    ##section 5##
+    # Split-out validation dataset
+    array = dataset.values
+    X = array[:, 0:4]
+    Y = array[:, 4]
+    validation_size = 0.20
+    seed = 7
+    return model_selection.train_test_split(X, Y, test_size=validation_size, random_state=seed)
+
+
+def runAlgorithms(X_train,Y_train):
+    # Test options and evaluation metric
+    seed = 7
+    scoring = 'accuracy'
+
+    # Spot Check Algorithms
+    models = []
+    models.append(('LR', LogisticRegression(solver='liblinear', multi_class='ovr')))
+    models.append(('LDA', LinearDiscriminantAnalysis()))
+    models.append(('KNN', KNeighborsClassifier()))
+    models.append(('CART', DecisionTreeClassifier()))
+    models.append(('NB', GaussianNB()))
+    models.append(('SVM', SVC(gamma='auto')))
+    # evaluate each model in turn
+    results = []
+    names = []
+    for name, model in models:
+        kfold = model_selection.KFold(n_splits=10, random_state=seed)
+        cv_results = model_selection.cross_val_score(model, X_train, Y_train, cv=kfold, scoring=scoring)
+        results.append(cv_results)
+        names.append(name)
+        msg = "%s: %f (%f)" % (name, cv_results.mean(), cv_results.std())
+        print(msg)
+    return [results, names]
+
+
+def compareAlgorithms(results, names):
+    # Compare Algorithms
+    fig = plt.figure()
+    fig.suptitle('Algorithm Comparison')
+    ax = fig.add_subplot(111)
+    plt.boxplot(results)
+    ax.set_xticklabels(names)
+    plt.show()
+
+
+
+def makePredictions(X_train, Y_train, X_validation, Y_validation):
+    # Make predictions on validation dataset
+    knn = KNeighborsClassifier()
+    knn.fit(X_train, Y_train)
+    predictions = knn.predict(X_validation)
+    print(accuracy_score(Y_validation, predictions))
+    print(confusion_matrix(Y_validation, predictions))
+    print(classification_report(Y_validation, predictions))
+
+
+def loadData():
+    # Load dataset
+    url = "iris.csv"
+    names = ['sepal-length', 'sepal-width', 'petal-length', 'petal-width', 'class']
+    dataset = pandas.read_csv(url, names=names)
+    return dataset
+
+
 def main():
-    loadData()
+    dataset = loadData()
+    printDataAttributes(dataset)
+    univariatePlots(dataset)
+    multivariantePlots(dataset)
+    [X_train, X_validation, Y_train, Y_validation] = createValidationSet(dataset)
+    [results, names] = runAlgorithms(X_train, Y_train)
+    compareAlgorithms(results, names)
+    makePredictions(X_train, Y_train, X_validation, Y_validation)
+
 
 if __name__ == "__main__":
     main()
